@@ -15,7 +15,11 @@ WPF | `net10.0-windows` | NAudio WASAPI
 - **Playing now** - live sessions on the default output; assign an app to a source
 - **Hotkeys** - open the window, re-apply the active mode, jump to favorite
   output/mic; each mode can have its own chord
-- **Tray** - single-click menu to switch modes; Start with Windows (`--tray`)
+- **Tray** - single-click menu to switch modes; Start with Windows (`--tray`);
+  Add to Start Menu shortcut
+- **Restore on quit** - Exit from the tray restores mic mute, master volume,
+  default devices, and session volumes captured at startup (closing the window
+  to the tray does not restore)
 - **Favorite devices** - one-key switch to a preferred playback/capture endpoint
 - **HUD** - brief on-screen confirm when a mode is applied
 
@@ -76,7 +80,7 @@ Start with Windows).
 | `ModeService.cs` | Apply mode + follow new matching sessions |
 | `ConfigManager.cs` | JSON config + seed/migrate |
 | `HotkeyManager.cs` | Global hotkeys |
-| `StartupHelper.cs` | HKCU Run autostart |
+| `StartupHelper.cs` | HKCU Run autostart + Start Menu shortcut |
 | `docs/DESIGN.md` | Evolution / design notes |
 
 ## License
