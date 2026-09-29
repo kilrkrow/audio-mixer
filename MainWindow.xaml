@@ -1,292 +1,294 @@
 <Window x:Class="audio_mixer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KilrKrow Audio Mixer"
-        Width="380"
-        Height="540"
-        WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
-        ResizeMode="NoResize"
-        ShowInTaskbar="False"
-        Topmost="True"
-        Deactivated="Window_Deactivated">
-    
+        Title="KilrKrow Mixer"
+        Width="940"
+        Height="660"
+        MinWidth="780"
+        MinHeight="500"
+        Background="{StaticResource BrushObsidian}"
+        Foreground="{StaticResource BrushTextPrimary}"
+        FontFamily="Segoe UI, Inter"
+        WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
     <Window.Resources>
-        <!-- Window Slide and Fade Animations -->
-        <Storyboard x:Key="SlideUp">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0.0" To="1.0" Duration="0:0:0.25">
-                <DoubleAnimation.EasingFunction>
-                    <CircleEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetProperty="Top"
-                             Duration="0:0:0.25">
-                <DoubleAnimation.EasingFunction>
-                    <CircleEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        <Storyboard x:Key="SlideDown">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="1.0" To="0.0" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <CircleEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetProperty="Top"
-                             Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <CircleEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextSecondary}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontFamily" Value="Segoe UI Semibold, Inter"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BrushCardBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderGlass}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,0,0,18"/>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="10">
-        <!-- Main Window Glass Container -->
-        <Border x:Name="WindowBorder"
-                CornerRadius="16"
-                Background="#df0c0f17"
-                BorderBrush="#25ffffff"
-                BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect Color="#000000" BlurRadius="15" ShadowDepth="2" Opacity="0.5"/>
-            </Border.Effect>
-            
-            <Grid>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header: brand · tabs · active mode -->
+        <Border Grid.Row="0" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,28,0">
+                    <TextBlock Text="KILRKROW" Foreground="{StaticResource BrushNeonCyan}" FontFamily="Segoe UI Semibold, Inter" FontSize="12"/>
+                    <TextBlock Text=" MIXER" Foreground="{StaticResource BrushTextPrimary}" FontFamily="Segoe UI Semibold, Inter" FontSize="12"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton x:Name="TabModes" Content="Modes" GroupName="Tabs" Style="{StaticResource TabButton}" IsChecked="True" Checked="Tab_Checked"/>
+                    <RadioButton x:Name="TabSources" Content="Sources" GroupName="Tabs" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
+                    <RadioButton x:Name="TabSettings" Content="Settings" GroupName="Tabs" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
+                </StackPanel>
+
+                <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="12" Padding="10,4"
+                        Background="#10ffffff" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="1"
+                        ToolTip="Switch modes from the tray icon, or with a mode's hotkey.">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="ActiveDot" Width="7" Height="7" Fill="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock x:Name="TxtActiveMode" Text="No mode active" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ============ MODES ============ -->
+        <Grid x:Name="PanelModes" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Mode list -->
+            <Border BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="0,0,1,0">
+                <Grid Margin="14,16,14,14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="YOUR MODES" Style="{StaticResource SectionLabel}" Margin="6,0,0,8"/>
+                    <ListBox x:Name="ModeList" Grid.Row="1" Style="{StaticResource GlassListBox}" SelectionChanged="ModeList_SelectionChanged"/>
+                    <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                        <Button Style="{StaticResource GlassButton}" Click="BtnNewMode_Click" Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconPlus}" Fill="{StaticResource BrushNeonCyan}" Width="10" Height="10" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="New mode"/>
+                            </StackPanel>
+                        </Button>
+                        <UniformGrid Columns="2">
+                            <Button x:Name="BtnDuplicateMode" Content="Duplicate" Style="{StaticResource GlassButton}" Margin="0,0,3,0" Click="BtnDuplicateMode_Click"/>
+                            <Button x:Name="BtnDeleteMode" Content="Delete" Style="{StaticResource GlassButton}" Margin="3,0,0,0" Click="BtnDeleteMode_Click"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Mode editor -->
+            <Grid Grid.Column="1">
+                <TextBlock x:Name="TxtNoMode" Text="Create a mode to get started." Style="{StaticResource Hint}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+
+                <ScrollViewer x:Name="ModeEditor" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="24,18,20,18" MaxWidth="640" HorizontalAlignment="Left">
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtModeName" FontSize="18" FontFamily="Segoe UI Semibold, Inter" Padding="10,6"
+                                     TextChanged="TxtModeName_TextChanged"/>
+                            <Button x:Name="BtnApplyMode" Grid.Column="1" Style="{StaticResource PrimaryButton}" Padding="16,8" Margin="10,0,0,0"
+                                    Click="BtnApplyMode_Click" Content="Apply now"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Hotkey" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox x:Name="TxtModeHotkey" Grid.Column="1" IsReadOnly="True" Cursor="Hand" HorizontalContentAlignment="Center" VerticalAlignment="Center"
+                                     PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                            <TextBlock Grid.Column="2" Text="Click, then press a combo. Backspace clears." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </Grid>
+
+                        <Border x:Name="LiveBanner" CornerRadius="6" Padding="10,6" Margin="0,8,0,0" Background="#1400f0ff" BorderBrush="#5500f0ff" BorderThickness="1">
+                            <TextBlock Text="This mode is active — changes here are heard immediately." FontSize="11" Foreground="{StaticResource BrushNeonCyan}"/>
+                        </Border>
+
+                        <Grid Margin="0,22,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="SOURCE LEVELS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                                <TextBlock Text="Switch a row on to have this mode set it. Rows left off are untouched." Style="{StaticResource Hint}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Copy current levels" Style="{StaticResource GlassButton}" Padding="10,5" FontSize="11"
+                                    VerticalAlignment="Bottom" Click="BtnCaptureLevels_Click"
+                                    ToolTip="Set this mode's levels from whatever is playing right now."/>
+                        </Grid>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel x:Name="LevelRows"/>
+                        </Border>
+
+                        <TextBlock Text="SYSTEM" Style="{StaticResource SectionLabel}"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel x:Name="SystemRows"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- ============ SOURCES ============ -->
+        <Grid x:Name="PanelSources" Grid.Row="1" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="340"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Margin="24,18,20,14">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="50"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-
-                <!-- Titlebar Area -->
-                <Grid Grid.Row="0" Margin="16,0">
+                <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="KILRKROW"
-                                   Foreground="{StaticResource BrushNeonCyan}"
-                                   FontFamily="Segoe UI Semibold, Inter"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text=" MIXER"
-                                   Foreground="{StaticResource BrushTextPrimary}"
-                                   FontFamily="Segoe UI Semibold, Inter"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"/>
+                    <StackPanel>
+                        <TextBlock Text="SOURCES" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="A source is a bucket of apps (Voice, Games…). Modes set one level per source. Apps that aren't in any source count as Everything else."/>
                     </StackPanel>
-
-                    <!-- Header Navigation Buttons -->
-                    <Button x:Name="BtnNav"
-                            Grid.Column="1"
-                            Style="{StaticResource GlassIconButton}"
-                            Margin="0,0,6,0"
-                            Click="BtnNav_Click">
-                        <Path x:Name="PathNav"
-                              Data="{StaticResource IconSettings}"
-                              Fill="{StaticResource BrushTextSecondary}"
-                              Width="14"
-                              Height="14"
-                              Stretch="Uniform"/>
-                    </Button>
-
-                    <Button Grid.Column="2"
-                            Style="{StaticResource GlassIconButton}"
-                            Click="BtnClose_Click">
-                        <Path Data="{StaticResource IconClose}"
-                              Fill="{StaticResource BrushTextSecondary}"
-                              Width="14"
-                              Height="14"
-                              Stretch="Uniform"/>
+                    <Button Grid.Column="1" Style="{StaticResource GlassButton}" VerticalAlignment="Bottom" Margin="12,0,0,0" Click="BtnNewSource_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconPlus}" Fill="{StaticResource BrushNeonCyan}" Width="10" Height="10" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="New source"/>
+                        </StackPanel>
                     </Button>
                 </Grid>
-
-                <Separator Grid.Row="0" Height="1" Background="#15ffffff" VerticalAlignment="Bottom"/>
-
-                <!-- Content Panel (Dynamic Toggle Panels) -->
-                <Grid Grid.Row="1" Margin="16,12">
-                    
-                    <!-- 1. MIXER SCREEN -->
-                    <Grid x:Name="PanelMixer" Visibility="Visible">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- Devices Selector -->
-                            <RowDefinition Height="*"/>    <!-- Session Volume Sliders -->
-                        </Grid.RowDefinitions>
-
-                        <!-- Audio Devices Section -->
-                        <Border Grid.Row="0"
-                                Background="{StaticResource BrushCardBackground}"
-                                BorderBrush="{StaticResource BrushBorderGlass}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Padding="12"
-                                Margin="0,0,0,12">
-                            <StackPanel>
-                                <!-- Playback Device Selection -->
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0" Data="{StaticResource IconVolume}" Fill="{StaticResource BrushNeonCyan}" Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="ComboPlayback"
-                                              Grid.Column="1"
-                                              Background="#15000000"
-                                              Foreground="{StaticResource BrushTextPrimary}"
-                                              BorderBrush="{StaticResource BrushBorderGlass}"
-                                              Padding="8,6"
-                                              SelectionChanged="ComboPlayback_SelectionChanged"
-                                              VerticalAlignment="Center"/>
-                                    <CheckBox x:Name="CheckFavPlayback"
-                                              Grid.Column="2"
-                                              Style="{StaticResource FavoriteCheckBox}"
-                                              Margin="8,0,0,0"
-                                              VerticalAlignment="Center"
-                                              Checked="CheckFavPlayback_Changed"
-                                              Unchecked="CheckFavPlayback_Changed"/>
-                                </Grid>
-
-                                <!-- Microphone Device Selection -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0" Data="{StaticResource IconMic}" Fill="{StaticResource BrushNeonMagenta}" Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="ComboRecording"
-                                              Grid.Column="1"
-                                              Background="#15000000"
-                                              Foreground="{StaticResource BrushTextPrimary}"
-                                              BorderBrush="{StaticResource BrushBorderGlass}"
-                                              Padding="8,6"
-                                              SelectionChanged="ComboRecording_SelectionChanged"
-                                              VerticalAlignment="Center"/>
-                                    <CheckBox x:Name="CheckFavRecording"
-                                              Grid.Column="2"
-                                              Style="{StaticResource FavoriteCheckBox}"
-                                              Margin="8,0,0,0"
-                                              VerticalAlignment="Center"
-                                              Checked="CheckFavRecording_Changed"
-                                              Unchecked="CheckFavRecording_Changed"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Scrollable App Mixer List -->
-                        <Grid Grid.Row="1">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <StackPanel x:Name="ListAppSessions" Margin="0,0,4,0"/>
-                            </ScrollViewer>
-                        </Grid>
-                    </Grid>
-
-                    <!-- 2. SETTINGS SCREEN -->
-                    <Grid x:Name="PanelSettings" Visibility="Collapsed">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <StackPanel Margin="0,0,4,0">
-                                
-                                <!-- Favorite Devices Summary -->
-                                <TextBlock Text="FAVORITE DEVICES" Foreground="{StaticResource BrushTextSecondary}" FontSize="10" FontFamily="Segoe UI Semibold, Inter" Margin="0,0,0,8"/>
-                                <Border Background="{StaticResource BrushCardBackground}" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <Grid Margin="0,0,0,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Playback: " Foreground="{StaticResource BrushTextSecondary}" FontSize="11" Width="60"/>
-                                            <TextBlock x:Name="TxtFavPlaybackName" Grid.Column="1" Text="None Selected" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                        </Grid>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Mic: " Foreground="{StaticResource BrushTextSecondary}" FontSize="11" Width="60"/>
-                                            <TextBlock x:Name="TxtFavRecordingName" Grid.Column="1" Text="None Selected" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- Global Hotkey Configuration -->
-                                <TextBlock Text="GLOBAL HOTKEYS" Foreground="{StaticResource BrushTextSecondary}" FontSize="10" FontFamily="Segoe UI Semibold, Inter" Margin="0,0,0,8"/>
-                                <Border Background="{StaticResource BrushCardBackground}" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <!-- Hotkey: Toggle Mixer -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Toggle Mixer UI" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBox x:Name="TxtHotkeyToggleMixer" Grid.Column="1" Background="#15000000" Foreground="{StaticResource BrushTextPrimary}" BorderBrush="{StaticResource BrushBorderGlass}" Padding="6,4" FontSize="11" HorizontalContentAlignment="Center" IsReadOnly="True" Cursor="Hand" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
-                                        </Grid>
-
-                                        <!-- Hotkey: Switch Output -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Switch to Favorite Out" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBox x:Name="TxtHotkeyFavOutput" Grid.Column="1" Background="#15000000" Foreground="{StaticResource BrushTextPrimary}" BorderBrush="{StaticResource BrushBorderGlass}" Padding="6,4" FontSize="11" HorizontalContentAlignment="Center" IsReadOnly="True" Cursor="Hand" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
-                                        </Grid>
-
-                                        <!-- Hotkey: Switch Input -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Switch to Favorite Mic" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBox x:Name="TxtHotkeyFavInput" Grid.Column="1" Background="#15000000" Foreground="{StaticResource BrushTextPrimary}" BorderBrush="{StaticResource BrushBorderGlass}" Padding="6,4" FontSize="11" HorizontalContentAlignment="Center" IsReadOnly="True" Cursor="Hand" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
-                                        </Grid>
-
-                                        <!-- Hotkey: Reset Levels -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Reset Volume Presets" Foreground="{StaticResource BrushTextPrimary}" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBox x:Name="TxtHotkeyResetLevels" Grid.Column="1" Background="#15000000" Foreground="{StaticResource BrushTextPrimary}" BorderBrush="{StaticResource BrushBorderGlass}" Padding="6,4" FontSize="11" HorizontalContentAlignment="Center" IsReadOnly="True" Cursor="Hand" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- App Volume Presets Section -->
-                                <TextBlock Text="FAVORITE VOLUME PRESETS" Foreground="{StaticResource BrushTextSecondary}" FontSize="10" FontFamily="Segoe UI Semibold, Inter" Margin="0,0,0,8"/>
-                                <Border Background="{StaticResource BrushCardBackground}" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
-                                    <StackPanel>
-                                        <!-- Preset App List Container -->
-                                        <StackPanel x:Name="ListPresetsContainer" Margin="0,0,0,10"/>
-                                        
-                                        <!-- Row to Add Active App to Presets -->
-                                        <Separator Height="1" Background="#15ffffff" Margin="0,0,0,10"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <ComboBox x:Name="ComboAddPreset" Grid.Column="0" Background="#15000000" Foreground="{StaticResource BrushTextPrimary}" BorderBrush="{StaticResource BrushBorderGlass}" Padding="8,5" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1" Content="Add Preset" Style="{StaticResource GlassButton}" Padding="10,5" Margin="8,0,0,0" VerticalAlignment="Center" Click="BtnAddPreset_Click"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                                
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Grid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="SourceCards" Margin="0,0,6,0"/>
+                </ScrollViewer>
             </Grid>
-        </Border>
+
+            <Border Grid.Column="1" BorderBrush="{StaticResource BrushBorderGlass}" BorderThickness="1,0,0,0">
+                <Grid Margin="16,18,14,14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Text="PLAYING NOW" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                        <TextBlock Style="{StaticResource Hint}" Text="Anything making sound on the default output. Pick which source each app belongs to."/>
+                    </StackPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="PlayingList" Margin="0,0,6,0"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============ SETTINGS ============ -->
+        <ScrollViewer x:Name="PanelSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="24,18,20,18" MaxWidth="560" HorizontalAlignment="Left">
+
+                <TextBlock Text="GENERAL" Style="{StaticResource SectionLabel}"/>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <CheckBox x:Name="CheckStartWithWindows" Style="{StaticResource GlassToggle}" Content="Start with Windows"
+                                  Checked="CheckStartWithWindows_Changed" Unchecked="CheckStartWithWindows_Changed"/>
+                        <TextBlock Style="{StaticResource Hint}" Margin="38,4,0,0"
+                                   Text="Closing this window keeps the mixer running in the tray. Click the tray icon to switch modes; use Exit there to quit."/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="FAVORITE DEVICES" Style="{StaticResource SectionLabel}"/>
+                <Border Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Output" FontSize="12" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="ComboFavOutput" Grid.Column="1" Margin="0,0,0,8" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                  SelectionChanged="ComboFavOutput_SelectionChanged"/>
+                        <TextBlock Grid.Row="1" Text="Mic" FontSize="12" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="ComboFavInput" Grid.Row="1" Grid.Column="1" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                  SelectionChanged="ComboFavInput_SelectionChanged"/>
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="GLOBAL HOTKEYS" Style="{StaticResource SectionLabel}"/>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Open this window" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtHotkeyToggleMixer" Grid.Column="1" IsReadOnly="True" Cursor="Hand" HorizontalContentAlignment="Center" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Re-apply active mode" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtHotkeyResetLevels" Grid.Column="1" IsReadOnly="True" Cursor="Hand" HorizontalContentAlignment="Center" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Switch to favorite output" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtHotkeyFavOutput" Grid.Column="1" IsReadOnly="True" Cursor="Hand" HorizontalContentAlignment="Center" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Switch to favorite mic" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtHotkeyFavInput" Grid.Column="1" IsReadOnly="True" Cursor="Hand" HorizontalContentAlignment="Center" PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"/>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Text="Click a box and press a combo using Ctrl, Alt, Shift or Win. Backspace clears. Each mode's own hotkey is set on the Modes tab."/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

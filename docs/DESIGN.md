@@ -9,6 +9,8 @@
 | **Repo** | `D:\_dev\audio-mixer` (WPF, `net10.0-windows`, NAudio.Wasapi 2.3.0) |
 | **Product name** | KilrKrow Mixer (mutex `KilrKrowAudioMixerMutex`, config `%AppData%\KilrKrowAudioMixer\config.json`) |
 
+> **Rev 4 — UI direction change (2026-09-28).** The tray-docked flyout is abandoned. "Profiles" are now **Modes** built from shared **Sources** (named app buckets like Voice / Games, plus built-in *System sounds* and *Everything else*). A normal window (Modes / Sources / Settings tabs) is for *building* modes; the tray menu (single click) is for *switching* them. Engine, device switching, hotkeys and config path are unchanged. Where the sections below talk about the flyout, profile strip, per-app entries or groups, the code in `MainWindow.*`, `ModeService.cs` and `ConfigManager.cs` supersedes them.
+
 This is an in-place evolution of the existing app. It is **not** a greenfield rewrite, not a move to `D:\_dev\vol-snap`, not WinUI 3, and not a C++/Direct2D port. VoltDesk and Sideclip are **pattern sources only** — copy code, do not add project references.
 
 ---
