@@ -299,10 +299,10 @@ namespace audio_mixer
                 LevelRows.Children.Clear();
                 foreach (var group in _config.Sources)
                 {
-                    var apps = group.ProcessNames;
-                    string subtitle = apps.Count == 0
+                    var parts = group.PathContains.Select(f => $"anything in {f}").Concat(group.ProcessNames).ToList();
+                    string subtitle = parts.Count == 0
                         ? "No apps yet — add some on the Sources tab"
-                        : string.Join(", ", apps.Take(4)) + (apps.Count > 4 ? $" +{apps.Count - 4}" : string.Empty);
+                        : string.Join(", ", parts.Take(4)) + (parts.Count > 4 ? $" +{parts.Count - 4}" : string.Empty);
                     LevelRows.Children.Add(BuildSourceLevelRow(mode, group.Id, group.Name, subtitle));
                 }
                 LevelRows.Children.Add(BuildSourceLevelRow(mode, BuiltInSources.System, BuiltInSources.NameOf(BuiltInSources.System), "Windows notification sounds"));
@@ -736,18 +736,26 @@ namespace audio_mixer
 
             // App chips
             var chips = new WrapPanel { Margin = new Thickness(4, 0, 0, 8) };
-            if (group.ProcessNames.Count == 0)
+            if (group.ProcessNames.Count == 0 && group.PathContains.Count == 0)
             {
                 chips.Children.Add(new TextBlock
                 {
-                    Text = "No apps yet. Type an app name below, or assign one from Playing now.",
+                    Text = "No apps yet. Type an app name or folder below, or assign one from Playing now.",
                     FontSize = 11,
                     Foreground = Brush("BrushTextMuted"),
                     TextWrapping = TextWrapping.Wrap
                 });
             }
+            foreach (var folder in group.PathContains.ToList())
+            {
+                chips.Children.Add(BuildChip($"📁 anything in {folder}", $"Remove folder rule {folder}", () =>
+                    group.PathContains.RemoveAll(f => string.Equals(AudioSourceGroup.NormalizeFolder(f), AudioSourceGroup.NormalizeFolder(folder), StringComparison.OrdinalIgnoreCase))));
+            }
             foreach (var process in group.ProcessNames.ToList())
-                chips.Children.Add(BuildAppChip(group, process));
+            {
+                chips.Children.Add(BuildChip(process, $"Remove {process}", () =>
+                    group.ProcessNames.RemoveAll(p => AppConfig.NormalizeProcessName(p) == AppConfig.NormalizeProcessName(process))));
+            }
             stack.Children.Add(chips);
 
             // Add-app row
@@ -759,7 +767,7 @@ namespace audio_mixer
             var input = new TextBox { FontSize = 12, Padding = new Thickness(8, 5, 8, 5) };
             var placeholder = new TextBlock
             {
-                Text = "App name, e.g. discord or valorant.exe",
+                Text = @"App name (discord) or folder (\steamapps\common\)",
                 FontSize = 12,
                 Foreground = Brush("BrushTextMuted"),
                 Margin = new Thickness(10, 0, 0, 0),
@@ -777,7 +785,20 @@ namespace audio_mixer
 
             void Add()
             {
-                var name = AppConfig.NormalizeProcessName(input.Text);
+                var text = input.Text.Trim();
+                if (text.Contains('\\') || text.Contains('/'))
+                {
+                    // Folder rule: every app whose exe path contains this
+                    var folder = AudioSourceGroup.NormalizeFolder(text);
+                    if (!group.PathContains.Any(f => string.Equals(AudioSourceGroup.NormalizeFolder(f), folder, StringComparison.OrdinalIgnoreCase)))
+                        group.PathContains.Add(folder);
+                    AppRef.SaveConfig();
+                    RefreshSources();
+                    RefreshPlaying(force: true);
+                    return;
+                }
+
+                var name = AppConfig.NormalizeProcessName(text);
                 if (name.Length == 0) return;
                 AssignProcess(name, group.Id);
             }
@@ -791,7 +812,7 @@ namespace audio_mixer
             return card;
         }
 
-        private FrameworkElement BuildAppChip(AudioSourceGroup group, string process)
+        private FrameworkElement BuildChip(string text, string removeTip, Action remove)
         {
             var chip = new Border
             {
@@ -803,9 +824,9 @@ namespace audio_mixer
                 Margin = new Thickness(0, 0, 6, 6)
             };
             var row = new StackPanel { Orientation = Orientation.Horizontal };
-            row.Children.Add(new TextBlock { Text = process, FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+            row.Children.Add(new TextBlock { Text = text, FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
 
-            var remove = new Button
+            var removeBtn = new Button
             {
                 Style = (Style)FindResource("GlassIconButton"),
                 Width = 20,
@@ -813,7 +834,7 @@ namespace audio_mixer
                 Padding = new Thickness(5),
                 BorderThickness = new Thickness(0),
                 Margin = new Thickness(4, 0, 0, 0),
-                ToolTip = $"Remove {process}",
+                ToolTip = removeTip,
                 Content = new System.Windows.Shapes.Path
                 {
                     Data = (Geometry)FindResource("IconClose"),
@@ -821,14 +842,14 @@ namespace audio_mixer
                     Stretch = Stretch.Uniform
                 }
             };
-            remove.Click += (s, e) =>
+            removeBtn.Click += (s, e) =>
             {
-                group.ProcessNames.RemoveAll(p => AppConfig.NormalizeProcessName(p) == AppConfig.NormalizeProcessName(process));
+                remove();
                 AppRef.SaveConfig();
                 RefreshSources();
                 RefreshPlaying(force: true);
             };
-            row.Children.Add(remove);
+            row.Children.Add(removeBtn);
             chip.Child = row;
             return chip;
         }
@@ -841,8 +862,12 @@ namespace audio_mixer
             var n = AppConfig.NormalizeProcessName(processName);
             foreach (var g in _config.Sources)
                 g.ProcessNames.RemoveAll(p => AppConfig.NormalizeProcessName(p) == n);
+            _config.UnassignedProcessNames.RemoveAll(p => AppConfig.NormalizeProcessName(p) == n);
 
-            _config.SourceById(sourceId)?.ProcessNames.Add(n);
+            if (sourceId == BuiltInSources.Other)
+                _config.UnassignedProcessNames.Add(n); // opt out of folder rules too
+            else
+                _config.SourceById(sourceId)?.ProcessNames.Add(n);
             AppRef.SaveConfig();
             RefreshSources();
             RefreshPlaying(force: true);
@@ -939,6 +964,9 @@ namespace audio_mixer
             bool isSystem = s.ProcessName == "System Sounds";
             string title = isSystem ? "System sounds" : s.DisplayName;
             string subtitle = isSystem ? "Built-in" : AppConfig.NormalizeProcessName(s.ProcessName);
+            var folderSource = _config.FolderSourceFor(s.ProcessPath);
+            if (!isSystem && folderSource != null && _config.ResolveSourceId(s) == folderSource.Id)
+                subtitle += " · by folder";
             var label = BuildRowLabel(title, subtitle);
             label.Margin = new Thickness(0, 0, 8, 0);
             ((TextBlock)label.Children[0]).FontSize = 12;
@@ -961,14 +989,15 @@ namespace audio_mixer
                 ItemsSource = options,
                 DisplayMemberPath = "Value",
                 SelectedValuePath = "Key",
-                SelectedValue = _config.ResolveSourceId(s.ProcessName),
+                SelectedValue = _config.ResolveSourceId(s),
                 VerticalAlignment = VerticalAlignment.Center,
                 FontSize = 11
             };
             string process = s.ProcessName;
+            string path = s.ProcessPath;
             combo.SelectionChanged += (sender, e) =>
             {
-                if (combo.SelectedValue is string target && target != _config.ResolveSourceId(process))
+                if (combo.SelectedValue is string target && target != _config.ResolveSourceId(process, path))
                     AssignProcess(process, target);
             };
             Grid.SetColumn(combo, 2);

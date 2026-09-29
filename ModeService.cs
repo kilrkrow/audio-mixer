@@ -129,7 +129,7 @@ namespace audio_mixer
             var seen = new HashSet<string>();
             foreach (var s in _engine.GetSessions())
             {
-                var sourceId = _config.ResolveSourceId(s.ProcessName);
+                var sourceId = _config.ResolveSourceId(s);
                 if (!seen.Add(sourceId)) continue;
 
                 var level = mode.LevelFor(sourceId);
@@ -156,7 +156,7 @@ namespace audio_mixer
             var levels = new Dictionary<uint, SourceLevel>();
             foreach (var s in sessions)
             {
-                var level = mode.LevelFor(_config.ResolveSourceId(s.ProcessName));
+                var level = mode.LevelFor(_config.ResolveSourceId(s));
                 if (level != null)
                     levels[s.ProcessId] = level;
             }
