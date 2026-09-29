@@ -40,6 +40,12 @@ namespace audio_mixer
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
         public string Name { get; set; } = string.Empty;
         public List<string> ProcessNames { get; set; } = new();
+
+        // Any app whose exe lives under one of these folders, e.g. "\steamapps\common\" for every Steam game
+        public List<string> PathContains { get; set; } = new();
+
+        public static string NormalizeFolder(string? folder) =>
+            (folder ?? string.Empty).Trim().Trim('"').Replace('/', '\\');
     }
 
     /// <summary>
@@ -87,7 +93,8 @@ namespace audio_mixer
 
     public class AppConfig
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
+        public const string SteamGamesFolder = @"\steamapps\common\";
 
         // Configs written before modes existed deserialize as 1 and get seeded.
         public int SchemaVersion { get; set; } = 1;
@@ -103,6 +110,9 @@ namespace audio_mixer
 
         public List<AudioSourceGroup> Sources { get; set; } = new();
         public List<MixMode> Modes { get; set; } = new();
+
+        // Apps the user explicitly put in "Everything else", so folder rules don't pull them in (e.g. Wallpaper Engine in steamapps)
+        public List<string> UnassignedProcessNames { get; set; } = new();
         public string? ActiveModeId { get; set; }
         public bool StartWithWindows { get; set; }
 
@@ -119,10 +129,13 @@ namespace audio_mixer
             return n.ToLowerInvariant();
         }
 
+        public string ResolveSourceId(AudioSession session) => ResolveSourceId(session.ProcessName, session.ProcessPath);
+
         /// <summary>
-        /// Which source a running process belongs to: System sounds, the first group listing it, or Everything else.
+        /// Which source a running process belongs to: System sounds, a source naming the app,
+        /// a source whose folder contains the exe, or Everything else. Explicit names beat folders.
         /// </summary>
-        public string ResolveSourceId(string processName)
+        public string ResolveSourceId(string processName, string? processPath = null)
         {
             if (processName is "System Sounds" or "System Sound")
                 return BuiltInSources.System;
@@ -133,7 +146,22 @@ namespace audio_mixer
                 if (g.ProcessNames.Any(p => NormalizeProcessName(p) == n))
                     return g.Id;
             }
-            return BuiltInSources.Other;
+
+            if (UnassignedProcessNames.Any(p => NormalizeProcessName(p) == n))
+                return BuiltInSources.Other;
+
+            var folderHit = FolderSourceFor(processPath);
+            return folderHit?.Id ?? BuiltInSources.Other;
+        }
+
+        public AudioSourceGroup? FolderSourceFor(string? processPath)
+        {
+            if (string.IsNullOrEmpty(processPath)) return null;
+            return Sources.Find(g => g.PathContains.Any(f =>
+            {
+                var folder = AudioSourceGroup.NormalizeFolder(f);
+                return folder.Length > 0 && processPath.Contains(folder, StringComparison.OrdinalIgnoreCase);
+            }));
         }
 
         public string SourceName(string id) =>
@@ -151,7 +179,12 @@ namespace audio_mixer
                 Sources.Add(new AudioSourceGroup { Id = "voice", Name = "Voice", ProcessNames = { "discord", "discordptb", "discordcanary", "teams", "ms-teams", "slack", "zoom", "skype", "mumble", "ts3client_win64" } });
                 Sources.Add(new AudioSourceGroup { Id = "audio", Name = "Audio", ProcessNames = { "spotify", "musicbee", "vlc", "foobar2000", "itunes", "applemusic", "wmplayer", "tidal" } });
                 Sources.Add(new AudioSourceGroup { Id = "browser", Name = "Browser", ProcessNames = { "chrome", "firefox", "msedge", "brave", "opera", "vivaldi" } });
-                Sources.Add(new AudioSourceGroup { Id = "games", Name = "Games" });
+                Sources.Add(new AudioSourceGroup { Id = "games", Name = "Games", PathContains = { SteamGamesFolder } });
+            }
+            else if (SchemaVersion < 3 && SourceById("games") is { } games && games.PathContains.Count == 0)
+            {
+                // v2 configs: give the seeded Games source the Steam library rule
+                games.PathContains.Add(SteamGamesFolder);
             }
 
             if (Modes.Count == 0)

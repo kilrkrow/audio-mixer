@@ -56,8 +56,49 @@ namespace audio_mixer
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool DestroyIcon(IntPtr hIcon);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, uint flags, System.Text.StringBuilder exeName, ref uint size);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr handle);
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
         public AudioEngine()
         {
+        }
+
+        /// <summary>
+        /// Exe path for folder rules. MainModule fails for elevated processes (common with anti-cheat games);
+        /// QueryFullProcessImageName only needs limited-query rights, so try it second.
+        /// </summary>
+        private static string GetProcessPath(Process process)
+        {
+            try
+            {
+                var path = process.MainModule?.FileName;
+                if (!string.IsNullOrEmpty(path)) return path;
+            }
+            catch
+            {
+                // Higher privilege or exited; fall through
+            }
+
+            IntPtr handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process.Id);
+            if (handle == IntPtr.Zero) return string.Empty;
+            try
+            {
+                var buffer = new System.Text.StringBuilder(1024);
+                uint size = (uint)buffer.Capacity;
+                return QueryFullProcessImageName(handle, 0, buffer, ref size) ? buffer.ToString() : string.Empty;
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
         }
 
         public List<AudioDevice> GetDevices(bool playbackOnly = false)
@@ -184,14 +225,7 @@ namespace audio_mixer
                                             displayName = processName;
                                         }
 
-                                        try
-                                        {
-                                            processPath = process.MainModule?.FileName ?? string.Empty;
-                                        }
-                                        catch
-                                        {
-                                            // Process might be running with higher privilege or exited
-                                        }
+                                        processPath = GetProcessPath(process);
                                     }
                                 }
                                 catch
