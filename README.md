@@ -45,6 +45,10 @@ Design notes: [docs/DESIGN.md](docs/DESIGN.md)
 
 ![HUD overlay after applying Focus Work](docs/screenshots/hud.png)
 
+### Tray
+
+![Tray context menu: modes, Start with Windows, Add to Start Menu, Exit](docs/screenshots/tray.png)
+
 ## Requirements
 
 - Windows 10/11
