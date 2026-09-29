@@ -303,6 +303,115 @@ namespace audio_mixer
             }
         }
 
+        /// <summary>
+        /// Sets volume/mute for many PIDs in a single pass over the default render device's sessions.
+        /// </summary>
+        public void ApplySessionLevels(IReadOnlyDictionary<uint, SourceLevel> levels)
+        {
+            if (levels.Count == 0) return;
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                using (var defaultRender = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                {
+                    var sessionList = defaultRender.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessionList.Count; i++)
+                    {
+                        using (var session = sessionList[i])
+                        {
+                            if (levels.TryGetValue(session.GetProcessID, out var level))
+                            {
+                                session.SimpleAudioVolume.Volume = Math.Clamp(level.Volume, 0.0f, 1.0f);
+                                session.SimpleAudioVolume.Mute = level.Mute;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying session levels: {ex.Message}");
+            }
+        }
+
+        public float? GetMasterVolume()
+        {
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                {
+                    return device.AudioEndpointVolume.MasterVolumeLevelScalar;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error reading master volume: {ex.Message}");
+                return null;
+            }
+        }
+
+        public void SetMasterVolume(float volume)
+        {
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                {
+                    device.AudioEndpointVolume.MasterVolumeLevelScalar = Math.Clamp(volume, 0.0f, 1.0f);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting master volume: {ex.Message}");
+            }
+        }
+
+        public bool? GetMicMute()
+        {
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications))
+                {
+                    return device.AudioEndpointVolume.Mute;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error reading mic mute: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Mutes the default mic. Covers both the communications and multimedia defaults in case they differ.
+        /// </summary>
+        public void SetMicMute(bool mute)
+        {
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                {
+                    foreach (var role in new[] { Role.Communications, Role.Multimedia })
+                    {
+                        try
+                        {
+                            using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, role))
+                            {
+                                device.AudioEndpointVolume.Mute = mute;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting mic mute: {ex.Message}");
+            }
+        }
+
         private string GetIconFromCacheOrExtract(string path)
         {
             if (_iconCache.TryGetValue(path, out var cached))

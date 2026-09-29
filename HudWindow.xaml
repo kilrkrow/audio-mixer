@@ -10,6 +10,7 @@
         Topmost="True"
         ShowInTaskbar="False"
         Focusable="False"
+        ShowActivated="False"
         WindowStartupLocation="Manual">
     
     <Window.Resources>
@@ -37,10 +38,7 @@
                 BorderBrush="#259d00ff"
                 BorderThickness="1"
                 Margin="8">
-            <Border.Effect>
-                <DropShadowEffect Color="#9d00ff" BlurRadius="12" ShadowDepth="0" Opacity="0.3"/>
-            </Border.Effect>
-            
+
             <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,8">
                 <TextBlock x:Name="TxtMessage"
                            Text="HUD Notification"
