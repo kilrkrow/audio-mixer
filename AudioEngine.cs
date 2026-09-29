@@ -29,6 +29,28 @@ namespace audio_mixer
         public uint ProcessId { get; set; }
     }
 
+    public class SessionSnapshot
+    {
+        public uint ProcessId { get; set; }
+        public string ProcessName { get; set; } = string.Empty;
+        public string ProcessPath { get; set; } = string.Empty;
+        public float Volume { get; set; }
+        public bool IsMuted { get; set; }
+    }
+
+    /// <summary>
+    /// Point-in-time Windows audio state captured at process start (before any mode apply).
+    /// Restored on true quit so tray-close does not roll anything back.
+    /// </summary>
+    public class AudioSnapshot
+    {
+        public string? DefaultRenderDeviceId { get; set; }
+        public string? DefaultCaptureDeviceId { get; set; }
+        public float? MasterVolume { get; set; }
+        public bool? MicMuted { get; set; }
+        public List<SessionSnapshot> Sessions { get; set; } = new();
+    }
+
     public class AudioEngine
     {
         private readonly Dictionary<string, string> _iconCache = new();
@@ -443,6 +465,137 @@ namespace audio_mixer
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error setting mic mute: {ex.Message}");
+            }
+        }
+
+        public AudioSnapshot CaptureSnapshot()
+        {
+            var snap = new AudioSnapshot
+            {
+                MasterVolume = GetMasterVolume(),
+                MicMuted = GetMicMute()
+            };
+
+            try
+            {
+                using (var enumerator = new MMDeviceEnumerator())
+                {
+                    try
+                    {
+                        using var render = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                        snap.DefaultRenderDeviceId = render.ID;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Snapshot render default: {ex.Message}");
+                    }
+
+                    try
+                    {
+                        using var capture = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+                        snap.DefaultCaptureDeviceId = capture.ID;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Snapshot capture default: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing device defaults: {ex.Message}");
+            }
+
+            foreach (var s in GetSessions())
+            {
+                snap.Sessions.Add(new SessionSnapshot
+                {
+                    ProcessId = s.ProcessId,
+                    ProcessName = s.ProcessName,
+                    ProcessPath = s.ProcessPath,
+                    Volume = s.Volume,
+                    IsMuted = s.IsMuted
+                });
+            }
+
+            return snap;
+        }
+
+        /// <summary>
+        /// Restores devices, master volume, mic mute, and any still-running sessions from a startup snapshot.
+        /// </summary>
+        public void RestoreSnapshot(AudioSnapshot? snap)
+        {
+            if (snap == null) return;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(snap.DefaultRenderDeviceId))
+                {
+                    SetDefaultDevice(snap.DefaultRenderDeviceId, ERole.Console);
+                    SetDefaultDevice(snap.DefaultRenderDeviceId, ERole.Multimedia);
+                    SetDefaultDevice(snap.DefaultRenderDeviceId, ERole.Communications);
+                }
+
+                if (!string.IsNullOrEmpty(snap.DefaultCaptureDeviceId))
+                {
+                    SetDefaultDevice(snap.DefaultCaptureDeviceId, ERole.Console);
+                    SetDefaultDevice(snap.DefaultCaptureDeviceId, ERole.Multimedia);
+                    SetDefaultDevice(snap.DefaultCaptureDeviceId, ERole.Communications);
+                }
+
+                if (snap.MasterVolume is float master)
+                    SetMasterVolume(master);
+
+                if (snap.MicMuted is bool micMuted)
+                    SetMicMute(micMuted);
+
+                if (snap.Sessions.Count == 0) return;
+
+                var current = GetSessions();
+                var levels = new Dictionary<uint, SourceLevel>();
+
+                foreach (var saved in snap.Sessions)
+                {
+                    AudioSession? match = null;
+                    foreach (var c in current)
+                    {
+                        if (c.ProcessId != 0 && c.ProcessId == saved.ProcessId)
+                        {
+                            match = c;
+                            break;
+                        }
+                    }
+
+                    if (match == null)
+                    {
+                        foreach (var c in current)
+                        {
+                            if (!string.Equals(c.ProcessName, saved.ProcessName, StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            if (!string.IsNullOrEmpty(saved.ProcessPath)
+                                && !string.Equals(c.ProcessPath, saved.ProcessPath, StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            match = c;
+                            break;
+                        }
+                    }
+
+                    if (match == null) continue;
+                    if (levels.ContainsKey(match.ProcessId)) continue;
+
+                    levels[match.ProcessId] = new SourceLevel
+                    {
+                        Volume = saved.Volume,
+                        Mute = saved.IsMuted
+                    };
+                }
+
+                ApplySessionLevels(levels);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error restoring audio snapshot: {ex.Message}");
             }
         }
 

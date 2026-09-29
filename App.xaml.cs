@@ -24,6 +24,7 @@ namespace audio_mixer
         private WinForms.ContextMenuStrip? _contextMenu;
         private DispatcherTimer? _sessionPoller;
         private IntPtr _trayIconHandle = IntPtr.Zero;
+        private AudioSnapshot? _startupSnapshot;
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -63,7 +64,9 @@ namespace audio_mixer
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             // 2. Initialize Engine, Config & Modes
+            // Snapshot Windows audio BEFORE any mode apply so Exit can restore it.
             _audioEngine = new AudioEngine();
+            _startupSnapshot = _audioEngine.CaptureSnapshot();
             _config = ConfigManager.Load();
             _modeService = new ModeService(_audioEngine, _config, SaveConfig);
             StartupHelper.ApplyStartOnWindows(_config.StartWithWindows);
@@ -321,6 +324,13 @@ namespace audio_mixer
             startup.Click += (s, e) => SetStartWithWindows(!Config.StartWithWindows);
             menu.Items.Add(startup);
 
+            var startMenu = new WinForms.ToolStripMenuItem("Add to Start Menu")
+            {
+                Checked = StartupHelper.IsStartMenuShortcutPresent()
+            };
+            startMenu.Click += (s, e) => SetStartMenuShortcut(!StartupHelper.IsStartMenuShortcutPresent());
+            menu.Items.Add(startMenu);
+
             menu.Items.Add(new WinForms.ToolStripSeparator());
             menu.Items.Add("Exit", null, (s, e) => ExitApp());
         }
@@ -343,6 +353,16 @@ namespace audio_mixer
             Config.StartWithWindows = enable;
             SaveConfig();
             _mainWindow?.RefreshSettings();
+        }
+
+        public void SetStartMenuShortcut(bool enable)
+        {
+            if (!StartupHelper.ApplyStartMenuShortcut(enable))
+            {
+                HudWindow.ShowHud("Couldn't update Start Menu shortcut.");
+                return;
+            }
+            HudWindow.ShowHud(enable ? "Added to Start Menu." : "Removed from Start Menu.");
         }
 
         public void RegisterGlobalHotkeys()
@@ -480,6 +500,16 @@ namespace audio_mixer
             IsExiting = true;
             _sessionPoller?.Stop();
             Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+
+            // Restore Windows audio to the startup snapshot (true Exit only; hide-to-tray skips this).
+            try
+            {
+                _audioEngine?.RestoreSnapshot(_startupSnapshot);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to restore audio on exit: {ex.Message}");
+            }
 
             SaveConfig();
             _hotkeyManager?.UnregisterAll();
