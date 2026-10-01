@@ -252,8 +252,12 @@ namespace audio_mixer
                                 }
                                 catch
                                 {
-                                    displayName = !string.IsNullOrEmpty(session.DisplayName) ? session.DisplayName : "System Sound";
-                                    processName = "System Sound";
+                                    // Real PID but process lookup failed (race / access). Do not
+                                    // invent System Sounds — that would skip Everything else.
+                                    displayName = !string.IsNullOrEmpty(session.DisplayName)
+                                        ? session.DisplayName
+                                        : $"pid {processId}";
+                                    processName = displayName;
                                 }
                             }
                             else
@@ -262,8 +266,8 @@ namespace audio_mixer
                                 processName = "System Sounds";
                             }
 
-                            // Format name nicely
-                            if (string.IsNullOrEmpty(displayName) || displayName == "System Sounds" || displayName == "System Sound")
+                            // Format name nicely (PID 0 / true system session only)
+                            if (processId == 0 || processName == "System Sounds" || processName == "System Sound")
                             {
                                 displayName = "System Sounds";
                                 processName = "System Sounds";

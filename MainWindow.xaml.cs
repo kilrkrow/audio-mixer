@@ -306,7 +306,7 @@ namespace audio_mixer
                     LevelRows.Children.Add(BuildSourceLevelRow(mode, group.Id, group.Name, subtitle));
                 }
                 LevelRows.Children.Add(BuildSourceLevelRow(mode, BuiltInSources.System, BuiltInSources.NameOf(BuiltInSources.System), "Windows notification sounds"));
-                LevelRows.Children.Add(BuildSourceLevelRow(mode, BuiltInSources.Other, BuiltInSources.NameOf(BuiltInSources.Other), "Any app not in a source"));
+                LevelRows.Children.Add(BuildSourceLevelRow(mode, BuiltInSources.Other, BuiltInSources.NameOf(BuiltInSources.Other), "Apps not covered by an enabled source row"));
 
                 SystemRows.Children.Clear();
                 SystemRows.Children.Add(BuildMasterRow(mode));
