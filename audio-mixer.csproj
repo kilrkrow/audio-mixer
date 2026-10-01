@@ -23,4 +23,12 @@
     <PackageReference Include="NAudio.Wasapi" Version="2.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="audio-mixer.Tests/**" />
+    <None Remove="audio-mixer.Tests/**" />
+    <EmbeddedResource Remove="audio-mixer.Tests/**" />
+    <Page Remove="audio-mixer.Tests/**" />
+  </ItemGroup>
+
 </Project>
+
