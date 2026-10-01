@@ -146,7 +146,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="SOURCE LEVELS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
-                                <TextBlock Text="Switch a row on to have this mode set it. Rows left off are untouched." Style="{StaticResource Hint}"/>
+                                <TextBlock Text="On rows set matching apps. Off rows do not write their level — those apps take Everything else when it is on." Style="{StaticResource Hint}"/>
                             </StackPanel>
                             <Button Grid.Column="1" Content="Copy current levels" Style="{StaticResource GlassButton}" Padding="10,5" FontSize="11"
                                     VerticalAlignment="Bottom" Click="BtnCaptureLevels_Click"

@@ -156,7 +156,8 @@ namespace audio_mixer
             var levels = new Dictionary<uint, SourceLevel>();
             foreach (var s in sessions)
             {
-                var level = mode.LevelFor(_config.ResolveSourceId(s));
+                // Off rows never write their own level; uncovered sessions take Everything else.
+                var level = _config.ResolveApplyLevel(mode, s);
                 if (level != null)
                     levels[s.ProcessId] = level;
             }

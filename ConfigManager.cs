@@ -49,7 +49,7 @@ namespace audio_mixer
     }
 
     /// <summary>
-    /// A mode's level for one source. Absent from <see cref="MixMode.Levels"/> = leave that source alone.
+    /// A mode's level for one source. Presence in <see cref="MixMode.Levels"/> means the row is on.
     /// </summary>
     public class SourceLevel
     {
@@ -60,7 +60,8 @@ namespace audio_mixer
 
     /// <summary>
     /// A switchable template: "Focus Work", "Gaming", ...
-    /// Every field is optional; anything not set is left untouched when the mode is applied.
+    /// Every field is optional. Source rows absent from <see cref="Levels"/> do not write their
+    /// own level; sessions they cover fall through to Everything else when that row is on.
     /// </summary>
     public class MixMode
     {
@@ -132,8 +133,33 @@ namespace audio_mixer
         public string ResolveSourceId(AudioSession session) => ResolveSourceId(session.ProcessName, session.ProcessPath);
 
         /// <summary>
+        /// Level this mode should write for a session, or null to leave the session untouched.
+        /// Rule (matches the Modes builder hint): an on row sets matching apps to that row's
+        /// level; an off row never writes its own level. Sessions whose membership source is
+        /// off (or is Everything else) take the Everything else level when that row is on.
+        /// Telegram and other apps not in any named source resolve to Everything else directly.
+        /// </summary>
+        public SourceLevel? ResolveApplyLevel(MixMode mode, AudioSession session) =>
+            ResolveApplyLevel(mode, session.ProcessName, session.ProcessPath);
+
+        public SourceLevel? ResolveApplyLevel(MixMode mode, string processName, string? processPath = null)
+        {
+            var membership = ResolveSourceId(processName, processPath);
+            var level = mode.LevelFor(membership);
+            if (level != null)
+                return level;
+
+            // Membership source is off — fall through to Everything else when that row is on.
+            if (membership != BuiltInSources.Other)
+                return mode.LevelFor(BuiltInSources.Other);
+
+            return null;
+        }
+
+        /// <summary>
         /// Which source a running process belongs to: System sounds, a source naming the app,
         /// a source whose folder contains the exe, or Everything else. Explicit names beat folders.
+        /// Membership is independent of whether that source's row is on in a mode.
         /// </summary>
         public string ResolveSourceId(string processName, string? processPath = null)
         {
