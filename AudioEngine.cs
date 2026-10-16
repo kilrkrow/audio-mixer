@@ -196,33 +196,26 @@ namespace audio_mixer
             return list;
         }
 
-        public void SetDefaultDevice(string deviceId, ERole role = ERole.Multimedia)
+        /// <summary>
+        /// Makes the device the default for one role. Returns false (and records <see cref="LastDeviceError"/>) when
+        /// no policy-config interface accepted the call, instead of silently doing nothing.
+        /// </summary>
+        public bool SetDefaultDevice(string deviceId, ERole role = ERole.Multimedia)
         {
-            try
-            {
-                var policyConfig = new PolicyConfigClient() as IPolicyConfig;
-                try
-                {
-                    if (policyConfig != null)
-                    {
-                        int hr = policyConfig.SetDefaultEndpoint(deviceId, role);
-                        if (hr != 0)
-                        {
-                            Marshal.ThrowExceptionForHR(hr);
-                        }
-                    }
-                }
-                finally
-                {
-                    ComRelease.Release(policyConfig);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error setting default device: {ex.Message}");
-            }
+            return DefaultDeviceSwitcher.Shared.TrySet(deviceId, role);
         }
 
+        /// <summary>Sets Console, Multimedia and Communications. Every role is attempted; true only if all succeeded.</summary>
+        public bool SetDefaultDeviceAllRoles(string deviceId)
+        {
+            bool ok = true;
+            ok &= SetDefaultDevice(deviceId, ERole.Console);
+            ok &= SetDefaultDevice(deviceId, ERole.Multimedia);
+            ok &= SetDefaultDevice(deviceId, ERole.Communications);
+            return ok;
+        }
+
+        public string? LastDeviceError => DefaultDeviceSwitcher.Shared.LastError;
         public List<AudioSession> GetSessions()
         {
             var sessions = new List<AudioSession>();

@@ -37,10 +37,8 @@ namespace audio_mixer
                 var device = _engine.GetDevices(playbackOnly: true).Find(d => d.Id == mode.OutputDeviceId);
                 if (device != null && !device.IsDefault)
                 {
-                    _engine.SetDefaultDevice(device.Id, ERole.Console);
-                    _engine.SetDefaultDevice(device.Id, ERole.Multimedia);
-                    _engine.SetDefaultDevice(device.Id, ERole.Communications);
-                    deviceSwitched = true;
+                    // False (already logged) if no policy-config interface worked; then there is nothing to re-apply later
+                    deviceSwitched = _engine.SetDefaultDeviceAllRoles(device.Id);
                 }
             }
 
