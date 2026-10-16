@@ -332,9 +332,11 @@ namespace audio_mixer
                 var dItem = new WinForms.ToolStripMenuItem(name) { Checked = device.IsDefault };
                 dItem.Click += (s, e) =>
                 {
-                    AudioEngine.SetDefaultDevice(id, ERole.Console);
-                    AudioEngine.SetDefaultDevice(id, ERole.Multimedia);
-                    AudioEngine.SetDefaultDevice(id, ERole.Communications);
+                    if (!AudioEngine.SetDefaultDeviceAllRoles(id))
+                    {
+                        HudWindow.ShowHud($"Couldn't switch output to {name}");
+                        return;
+                    }
                     HudWindow.ShowHud($"🎧 Output: {name}");
                 };
                 output.DropDownItems.Add(dItem);
@@ -481,9 +483,11 @@ namespace audio_mixer
 
             if (favDevice != null)
             {
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Multimedia);
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Console);
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Communications);
+                if (!AudioEngine.SetDefaultDeviceAllRoles(favoriteId))
+                {
+                    HudWindow.ShowHud($"Couldn't switch output to favorite:\n{favDevice.Name}");
+                    return;
+                }
 
                 HudWindow.ShowHud($"🎧 Output set to favorite:\n{favDevice.Name}");
                 _mainWindow?.RefreshUI();
@@ -508,9 +512,11 @@ namespace audio_mixer
 
             if (favDevice != null)
             {
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Multimedia);
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Console);
-                AudioEngine.SetDefaultDevice(favoriteId, ERole.Communications);
+                if (!AudioEngine.SetDefaultDeviceAllRoles(favoriteId))
+                {
+                    HudWindow.ShowHud($"Couldn't switch mic to favorite:\n{favDevice.Name}");
+                    return;
+                }
 
                 HudWindow.ShowHud($"🎙️ Mic set to favorite:\n{favDevice.Name}");
                 _mainWindow?.RefreshUI();
