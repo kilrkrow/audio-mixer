@@ -53,7 +53,9 @@ namespace audio_mixer
 
     public class AudioEngine
     {
-        private readonly Dictionary<string, string> _iconCache = new();
+        // Bounded: keyed by exe path, so updater folders (Discord app-1.0.x, Teams, Chrome) would otherwise add entries forever
+        public const int IconCacheCapacity = 64;
+        private readonly BoundedCache<string, string> _iconCache = new(IconCacheCapacity);
 
         // Win32 Shell API for Icon extraction
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
@@ -129,14 +131,15 @@ namespace audio_mixer
             
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
                 {
                     // Playback Devices
-                    var renderDevices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+                    var renderDevices = com.Track(enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active));
                     string defaultRenderId = string.Empty;
                     try
                     {
-                        using (var defaultPlay = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                        using (var defaultPlay = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                         {
                             defaultRenderId = defaultPlay.ID;
                         }
@@ -153,16 +156,17 @@ namespace audio_mixer
                             IsDefault = (d.ID == defaultRenderId)
                         });
                         d.Dispose();
+                        com.Track(d);
                     }
 
                     if (!playbackOnly)
                     {
                         // Capture Devices
-                        var captureDevices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+                        var captureDevices = com.Track(enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active));
                         string defaultCaptureId = string.Empty;
                         try
                         {
-                            using (var defaultRec = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia))
+                            using (var defaultRec = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia)))
                             {
                                 defaultCaptureId = defaultRec.ID;
                             }
@@ -179,6 +183,7 @@ namespace audio_mixer
                                 IsDefault = (d.ID == defaultCaptureId)
                             });
                             d.Dispose();
+                        com.Track(d);
                         }
                     }
                 }
@@ -196,13 +201,20 @@ namespace audio_mixer
             try
             {
                 var policyConfig = new PolicyConfigClient() as IPolicyConfig;
-                if (policyConfig != null)
+                try
                 {
-                    int hr = policyConfig.SetDefaultEndpoint(deviceId, role);
-                    if (hr != 0)
+                    if (policyConfig != null)
                     {
-                        Marshal.ThrowExceptionForHR(hr);
+                        int hr = policyConfig.SetDefaultEndpoint(deviceId, role);
+                        if (hr != 0)
+                        {
+                            Marshal.ThrowExceptionForHR(hr);
+                        }
                     }
+                }
+                finally
+                {
+                    ComRelease.Release(policyConfig);
                 }
             }
             catch (Exception ex)
@@ -216,15 +228,16 @@ namespace audio_mixer
             var sessions = new List<AudioSession>();
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var defaultRender = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var defaultRender = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
                     var sessionManager = defaultRender.AudioSessionManager;
-                    var sessionList = sessionManager.Sessions;
+                    var sessionList = com.Track(sessionManager.Sessions);
 
                     for (int i = 0; i < sessionList.Count; i++)
                     {
-                        using (var session = sessionList[i])
+                        using (var session = com.Track(sessionList[i]))
                         {
                             if ((int)session.State == 2) // 2 represents AudioSessionStateExpired
                                 continue;
@@ -311,15 +324,16 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var defaultRender = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var defaultRender = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
                     var sessionManager = defaultRender.AudioSessionManager;
-                    var sessionList = sessionManager.Sessions;
+                    var sessionList = com.Track(sessionManager.Sessions);
 
                     for (int i = 0; i < sessionList.Count; i++)
                     {
-                        using (var session = sessionList[i])
+                        using (var session = com.Track(sessionList[i]))
                         {
                             if (session.GetProcessID == processId)
                             {
@@ -339,15 +353,16 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var defaultRender = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var defaultRender = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
                     var sessionManager = defaultRender.AudioSessionManager;
-                    var sessionList = sessionManager.Sessions;
+                    var sessionList = com.Track(sessionManager.Sessions);
 
                     for (int i = 0; i < sessionList.Count; i++)
                     {
-                        using (var session = sessionList[i])
+                        using (var session = com.Track(sessionList[i]))
                         {
                             if (session.GetProcessID == processId)
                             {
@@ -371,13 +386,14 @@ namespace audio_mixer
             if (levels.Count == 0) return;
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var defaultRender = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var defaultRender = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
-                    var sessionList = defaultRender.AudioSessionManager.Sessions;
+                    var sessionList = com.Track(defaultRender.AudioSessionManager.Sessions);
                     for (int i = 0; i < sessionList.Count; i++)
                     {
-                        using (var session = sessionList[i])
+                        using (var session = com.Track(sessionList[i]))
                         {
                             if (levels.TryGetValue(session.GetProcessID, out var level))
                             {
@@ -398,8 +414,9 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var device = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
                     return device.AudioEndpointVolume.MasterVolumeLevelScalar;
                 }
@@ -415,8 +432,9 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var device = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)))
                 {
                     device.AudioEndpointVolume.MasterVolumeLevelScalar = Math.Clamp(volume, 0.0f, 1.0f);
                 }
@@ -431,8 +449,9 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
-                using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications))
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
+                using (var device = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications)))
                 {
                     return device.AudioEndpointVolume.Mute;
                 }
@@ -451,13 +470,14 @@ namespace audio_mixer
         {
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
                 {
                     foreach (var role in new[] { Role.Communications, Role.Multimedia })
                     {
                         try
                         {
-                            using (var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, role))
+                            using (var device = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, role)))
                             {
                                 device.AudioEndpointVolume.Mute = mute;
                             }
@@ -482,11 +502,12 @@ namespace audio_mixer
 
             try
             {
-                using (var enumerator = new MMDeviceEnumerator())
+                using var com = new ComScope();
+                using (var enumerator = com.Track(new MMDeviceEnumerator()))
                 {
                     try
                     {
-                        using var render = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                        using var render = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia));
                         snap.DefaultRenderDeviceId = render.ID;
                     }
                     catch (Exception ex)
@@ -496,7 +517,7 @@ namespace audio_mixer
 
                     try
                     {
-                        using var capture = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+                        using var capture = com.Track(enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia));
                         snap.DefaultCaptureDeviceId = capture.ID;
                     }
                     catch (Exception ex)
@@ -613,7 +634,7 @@ namespace audio_mixer
             string base64 = ExtractIconAsBase64(path);
             if (!string.IsNullOrEmpty(base64))
             {
-                _iconCache[path] = base64;
+                _iconCache.Set(path, base64);
             }
             return base64;
         }
