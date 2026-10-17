@@ -6,6 +6,7 @@ using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using WinForms = System.Windows.Forms;
@@ -25,6 +26,17 @@ namespace audio_mixer
         private DispatcherTimer? _sessionPoller;
         private IntPtr _trayIconHandle = IntPtr.Zero;
         private AudioSnapshot? _startupSnapshot;
+        private bool _pollInFlight;
+        private static Font? _trayHeaderFont;
+
+        // Audio COM calls can block inside the Windows audio service or a driver. If graceful shutdown does not
+        // finish quickly, force the process down instead of leaving an un-closable tray app behind.
+        private readonly ShutdownWatchdog _watchdog = new(
+            grace: TimeSpan.FromSeconds(5),
+            exitWait: TimeSpan.FromSeconds(3),
+            exit: code => Environment.Exit(code),
+            kill: () => Process.GetCurrentProcess().Kill());
+        private static readonly TimeSpan AudioCallTimeout = TimeSpan.FromSeconds(2);
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -63,6 +75,14 @@ namespace audio_mixer
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // Log off / shutdown / restart: the builder window normally cancels Close (hide-to-tray), which would
+            // otherwise make this app block Windows from ending the session.
+            SessionEnding += (s, args) =>
+            {
+                IsExiting = true;
+                _watchdog.Arm();
+            };
+
             // 2. Initialize Engine, Config & Modes
             // Snapshot Windows audio BEFORE any mode apply so Exit can restore it.
             _audioEngine = new AudioEngine();
@@ -91,7 +111,7 @@ namespace audio_mixer
             // 6. Follow new apps: seed what's already playing (no blast-apply at login), then poll
             _modeService.SeedKnownPids();
             _sessionPoller = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            _sessionPoller.Tick += (s, args) => _modeService.Poll();
+            _sessionPoller.Tick += (s, args) => PollSessions();
             _sessionPoller.Start();
 
             ListenForShowBuilderRequests();
@@ -101,6 +121,23 @@ namespace audio_mixer
             {
                 ShowBuilder();
             }
+        }
+
+        /// <summary>
+        /// Reads sessions on a worker thread (the Windows audio service can stall) and applies the result on the
+        /// UI thread. At most one read is in flight, so a stalled audio service cannot stack up threads or freeze the UI.
+        /// </summary>
+        private void PollSessions()
+        {
+            if (_pollInFlight || IsExiting || _audioEngine == null || _modeService == null) return;
+            _pollInFlight = true;
+            var engine = _audioEngine;
+            Task.Run(() => engine.GetSessions()).ContinueWith(t =>
+            {
+                _pollInFlight = false;
+                if (IsExiting || !t.IsCompletedSuccessfully) return;
+                _modeService?.Poll(t.Result);
+            }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         private const string ShowBuilderEventName = "KilrKrowAudioMixerShowBuilder";
@@ -244,9 +281,15 @@ namespace audio_mixer
         {
             if (_contextMenu == null) return;
             var menu = _contextMenu;
-            menu.Items.Clear();
 
-            var header = new WinForms.ToolStripLabel("MODES") { ForeColor = Color.FromArgb(0, 240, 255), Font = new Font("Segoe UI Semibold", 8f) };
+            // Clear() only detaches items; dispose them (and the old Output device dropdown) so they don't wait on finalizers
+            var oldItems = new List<WinForms.ToolStripItem>();
+            foreach (WinForms.ToolStripItem old in menu.Items) oldItems.Add(old);
+            menu.Items.Clear();
+            foreach (var old in oldItems) old.Dispose();
+
+            _trayHeaderFont ??= new Font("Segoe UI Semibold", 8f);
+            var header = new WinForms.ToolStripLabel("MODES") { ForeColor = Color.FromArgb(0, 240, 255), Font = _trayHeaderFont };
             menu.Items.Add(header);
 
             if (Config.Modes.Count == 0)
@@ -277,8 +320,12 @@ namespace audio_mixer
             reapply.Click += (s, e) => Modes.ReapplyActive();
             menu.Items.Add(reapply);
 
+            // Audio reads are time-limited so a stalled audio service can't freeze the tray menu
+            var devices = TimeLimitedRunner.Shared.TryRun(() => AudioEngine.GetDevices(playbackOnly: true), AudioCallTimeout, out var found) && found != null
+                ? found
+                : new List<AudioDevice>();
             var output = new WinForms.ToolStripMenuItem("Output device");
-            foreach (var device in AudioEngine.GetDevices(playbackOnly: true))
+            foreach (var device in devices)
             {
                 var id = device.Id;
                 var name = device.Name;
@@ -301,7 +348,7 @@ namespace audio_mixer
             output.Enabled = output.DropDownItems.Count > 0;
             menu.Items.Add(output);
 
-            var micMuted = AudioEngine.GetMicMute();
+            bool? micMuted = TimeLimitedRunner.Shared.TryRun(() => AudioEngine.GetMicMute(), AudioCallTimeout, out bool? micRead) ? micRead : null;
             var mic = new WinForms.ToolStripMenuItem("Mic muted") { Checked = micMuted == true, Enabled = micMuted != null };
             mic.Click += (s, e) =>
             {
@@ -492,19 +539,25 @@ namespace audio_mixer
         private void ExitApp()
         {
             IsExiting = true;
+            _watchdog.Arm();
             Shutdown();
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
             IsExiting = true;
+            _watchdog.Arm();
             _sessionPoller?.Stop();
             Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
 
             // Restore Windows audio to the startup snapshot (true Exit only; hide-to-tray skips this).
+            // Runs on a worker with a time limit: it is synchronous audio COM + SetDefaultDevice and must not hang Exit.
             try
             {
-                _audioEngine?.RestoreSnapshot(_startupSnapshot);
+                var engine = _audioEngine;
+                var snapshot = _startupSnapshot;
+                if (engine != null && !TimeLimitedRunner.Shared.TryRun(() => engine.RestoreSnapshot(snapshot), TimeSpan.FromSeconds(3)))
+                    Debug.WriteLine("Audio restore on exit timed out or failed; exiting anyway.");
             }
             catch (Exception ex)
             {

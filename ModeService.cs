@@ -107,9 +107,13 @@ namespace audio_mixer
         /// <summary>
         /// Poll tick: give newly appeared sessions the active mode's level (e.g. Discord launched mid-game).
         /// </summary>
-        public void Poll()
+        public void Poll() => Poll(_engine.GetSessions());
+
+        /// <summary>
+        /// Same as <see cref="Poll()"/> with sessions the caller already read (so the audio read can run off the UI thread).
+        /// </summary>
+        public void Poll(IReadOnlyList<AudioSession> sessions)
         {
-            var sessions = _engine.GetSessions();
             var active = Active;
             if (active != null)
             {
