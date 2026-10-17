@@ -7,3 +7,5 @@ obj/
 *.sln.docstates
 
 publish/
+publish-win-x64/
+AudioMixer-*.zip
