@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Document** | Design: evolve KilrKrow Audio Mixer into a named-profile tray mixer |
-| **Author** | Guy Schamp / KilrKrow |
+| **Author** | kilrkrow |
 | **Date** | 2026-09-12 |
 | **Status** | Draft (rev 3 — poller seed / STA affinity / PID 0 / Merge defaults) |
 | **Repo** | `D:\_dev\audio-mixer` (WPF, `net10.0-windows`, NAudio.Wasapi 2.3.0) |
@@ -50,7 +50,7 @@ v1 also ships two product-critical tray/chrome items: **Start with Windows** (HK
 1. **One mix only.** Switching from “Discord at 100%, music at 30%” to “music at 100%, Discord at 20%” means hand-dragging sliders or editing the one dictionary.
 2. **Presets do not follow new sessions.** The 1200 ms poller in `MainWindow` only runs while the flyout is open (`ShowMixer` starts it, `HideMixer` stops it). Launching Discord after applying presets does nothing unless the user hits Reset again.
 3. **No Start with Windows.** VoltDesk (`StartupHelper.cs`) and Sideclip (`SettingsManager.ApplyAutostart` + tray checkbox) already solved this; the mixer has neither the HKCU Run write nor the tray checkbox.
-4. **Chrome bug is shipping.** Screenshot `C:\Users\guysc\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` shows a light-gray rectangular “window box” around the rounded glass card, plus an unstyled white Win11 overlay scrollbar punching a hole in the glass. Root cause is analyzed in [Flyout chrome](#flyout-chrome).
+4. **Chrome bug is shipping.** Screenshot `%USERPROFILE%\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` shows a light-gray rectangular “window box” around the rounded glass card, plus an unstyled white Win11 overlay scrollbar punching a hole in the glass. Root cause is analyzed in [Flyout chrome](#flyout-chrome).
 5. **Engine is poll-and-dispose.** Every `GetSessions` / `SetSessionVolume` constructs a new `MMDeviceEnumerator`, opens the default render endpoint, and disposes it. That makes `IAudioSessionNotification` impossible (the session manager dies with the device) and makes applying a 12-app profile open the endpoint 12+ times.
 
 ### Why evolve in place
@@ -349,7 +349,7 @@ Inactive/expired sessions remain skipped (`State == 2`). Apps not currently play
 
 #### Screenshot evidence
 
-`C:\Users\guysc\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` (2026-09-12, settings panel):
+`%USERPROFILE%\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` (2026-09-12, settings panel):
 
 - The rounded glass card looks correct (obsidian, cyan “KILRKROW MIXER”, magenta/cyan sliders).
 - A **light-gray opaque rectangle** sits around the card, larger than the `CornerRadius="16"` body — the layered window’s HWND is showing through.
@@ -1061,7 +1061,7 @@ Locked product decisions are **not** listed here.
 | VoltDesk settings hotkey capture | `D:\_dev\voltdesk\SettingsWindow.cs` | UX analogue; mixer already has `PreviewKeyDown` |
 | Sideclip tray checkbox | `D:\_dev\Sideclip\Tray\TrayService.cs` (`Start with Windows`, `CheckOnClick`) | Port |
 | Sideclip autostart apply | `D:\_dev\Sideclip\Settings\SettingsManager.cs` (`ApplyAutostart`), called from `App.OnStartup` and on settings change | Port |
-| Screenshot evidence | `C:\Users\guysc\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` | Gray box + white scrollbar |
+| Screenshot evidence | `%USERPROFILE%\OneDrive\Pictures\Screenshots\Screenshot 2026-09-12 181020.png` | Gray box + white scrollbar |
 | NAudio session create | `AudioSessionManager.OnSessionCreated` → `SessionCreatedDelegate(object, IAudioSessionControl)`; `AudioSessionNotification` is **internal**; ctor `RefreshSessions` does not `GetCount` — `Sessions.Count` does | Opportunistic apply-on-create |
 | NAudio endpoint notify | `MMDeviceEnumerator.RegisterEndpointNotificationCallback`; **no** public `MMNotificationClient` in 2.3.0 XML | Private rooted `IMMNotificationClient` |
 | NAudio master volume | `MMDevice.AudioEndpointVolume.MasterVolumeLevelScalar` / `.Mute` | Optional profile master |
