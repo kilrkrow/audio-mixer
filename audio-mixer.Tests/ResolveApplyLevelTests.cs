@@ -55,7 +55,7 @@ public class ResolveApplyLevelTests
     public void QuietMode_OnlyOtherOn_At62_NamedOffRowsFallThrough_NotStickyOffSlider()
     {
         var config = TypicalConfig();
-        // Matches Guy's live Quiet Mode: only Everything else ON @ 62%
+        // Matches kilrkrow's live Quiet Mode: only Everything else ON @ 62%
         var quiet = new MixMode
         {
             Name = "Quiet Mode",
