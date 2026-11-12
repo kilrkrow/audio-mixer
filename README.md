@@ -89,4 +89,4 @@ Start with Windows).
 
 ## License
 
-Private KilrKrow project. Not published for general use.
+Public KilrKrow project. No license file is included yet, so all rights are reserved.
